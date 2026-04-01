@@ -12,27 +12,17 @@ chromium.use(StealthPlugin());
 async function applyFilters(page, filters, searchRadius) {
     console.log('🎯 Applying UI filters...');
 
-    // 1. SEARCH RADIUS (Nationwide)
-    await setSearchRadius(page, searchRadius);
-
-    // 2. BODY TYPE FILTER (Add Pickup Truck)
-    await applyBodyTypeFilter(page, filters.bodyTypes);
-
-    // 3. MAKE & MODEL FILTER (Ford, GMC, Chevrolet, Cadillac)
+    if (!await setSearchRadius(page, searchRadius)) return false;
+    if (!await applyBodyTypeFilter(page, filters.bodyTypes)) return false;
     if (filters.makes && filters.makes.length > 0) {
-        await applyMakeFilter(page, filters.makes);
+        if (!await applyMakeFilter(page, filters.makes)) return false;
     }
-
-    // 4. PRICE FILTER (Minimum $35,000)
-    await applyPriceFilter(page);
-
-    // 5. DEAL RATING FILTER (Great/Good/Fair)
-    await applyDealRatingFilter(page, filters.dealRatings);
-
-    // 6. SORT BY NEWEST LISTINGS - LAST
-    await applySortByNewest(page);
+    if (!await applyPriceFilter(page)) return false;
+    if (!await applyDealRatingFilter(page, filters.dealRatings)) return false;
+    if (!await applySortByNewest(page)) return false;
 
     console.log('✅ All filters applied successfully!');
+    return true;
 }
 
 async function setSearchRadius(page, searchRadius) {
@@ -41,18 +31,20 @@ async function setSearchRadius(page, searchRadius) {
 
         // Select the search distance dropdown (6-minute timeout)
         const dropdown = await page.locator('select[data-testid="select-filter-distance"]');
-        await dropdown.waitFor({ state: 'visible', timeout: 360000 });
+        await dropdown.waitFor({ state: 'visible', timeout: 90000 });
 
         // Select the value (50000 for Nationwide, or specific km value)
-        await dropdown.selectOption(searchRadius.toString(), { timeout: 360000 });
+        await dropdown.selectOption(searchRadius.toString(), { timeout: 90000 });
 
         console.log(`  ✅ Search radius set successfully`);
 
         // Wait for results to update
         await page.waitForTimeout(2000);
+        return true;
 
     } catch (error) {
-        console.log(`  ⚠️ Search radius error: ${error.message} (continuing...)`);
+        console.log(`  ❌ Search radius failed: ${error.message}`);
+        return false;
     }
 }
 
@@ -61,14 +53,14 @@ async function applyBodyTypeFilter(page, bodyTypes) {
         console.log(`🚗 Setting body types: ${bodyTypes.join(', ')}`);
 
         // Open Body Style accordion (6-minute timeout)
-        await page.click('#BodyStyle-accordion-trigger', { timeout: 360000 });
+        await page.click('#BodyStyle-accordion-trigger', { timeout: 90000 });
         await page.waitForTimeout(1000);
 
         // Click checkboxes for each body type
         for (const bodyType of bodyTypes) {
             if (bodyType.includes('Pickup')) {
                 // Find and click Pickup Truck checkbox (6-minute timeout)
-                await page.click('button[id*="PICKUP"], label:has-text("Pickup Truck")', { timeout: 360000 });
+                await page.click('button[id*="PICKUP"], label:has-text("Pickup Truck")', { timeout: 90000 });
                 await page.waitForTimeout(500);
                 console.log('  ✅ Added Pickup Truck');
             }
@@ -76,8 +68,10 @@ async function applyBodyTypeFilter(page, bodyTypes) {
         }
 
         await page.waitForTimeout(2000); // Wait for results to update
+        return true;
     } catch (error) {
-        console.log(`  ⚠️ Body type filter error: ${error.message} (continuing...)`);
+        console.log(`  ❌ Body type filter failed: ${error.message}`);
+        return false;
     }
 }
 
@@ -86,7 +80,7 @@ async function applyMakeFilter(page, makes) {
         console.log(`🏭 Setting makes: ${makes.join(', ')}`);
 
         // Open Make & Model accordion
-        await page.click('#MakeAndModel-accordion-trigger', { timeout: 360000 });
+        await page.click('#MakeAndModel-accordion-trigger', { timeout: 90000 });
         await page.waitForTimeout(1000);
 
         // Click checkbox for each make (stable approach)
@@ -96,17 +90,20 @@ async function applyMakeFilter(page, makes) {
                 const makeId = make.toUpperCase() === 'RAM' ? 'RAM' : make;
 
                 // Click the make button (escape dots in ID selector) with 6-minute timeout
-                await page.click(`#FILTER\\.MAKE_MODEL\\.${makeId}`, { timeout: 360000 });
+                await page.click(`#FILTER\\.MAKE_MODEL\\.${makeId}`, { timeout: 90000 });
                 console.log(`  ✅ Added ${make}`);
                 await page.waitForTimeout(500);
             } catch (error) {
-                console.log(`  ⚠️ Could not click ${make}: ${error.message}`);
+                console.log(`  ❌ Could not click ${make}: ${error.message}`);
+                return false;
             }
         }
 
         await page.waitForTimeout(2000); // Wait for results to update
+        return true;
     } catch (error) {
-        console.log(`  ⚠️ Make filter error: ${error.message} (continuing...)`);
+        console.log(`  ❌ Make filter failed: ${error.message}`);
+        return false;
     }
 }
 
@@ -115,15 +112,15 @@ async function applyPriceFilter(page) {
         console.log(`💰 Setting minimum price to: $35,000 CAD`);
 
         // Open Price accordion (6-minute timeout)
-        await page.click('#Price-accordion-trigger', { timeout: 360000 });
+        await page.click('#Price-accordion-trigger', { timeout: 90000 });
         await page.waitForTimeout(1000);
 
         // Find the MINIMUM slider specifically (not maximum)
         const minSlider = page.locator('[role="slider"][aria-label="Minimum"]');
-        await minSlider.waitFor({ state: 'visible', timeout: 360000 });
+        await minSlider.waitFor({ state: 'visible', timeout: 90000 });
 
         // Click on the minimum slider to focus it
-        await minSlider.click({ timeout: 360000 });
+        await minSlider.click({ timeout: 90000 });
         await page.waitForTimeout(500);
 
         // Set the slider value to 24 (which equals $35,000 CAD)
@@ -139,9 +136,11 @@ async function applyPriceFilter(page) {
 
         console.log(`  ✅ Minimum price set to $35,000`);
         await page.waitForTimeout(2000); // Wait for results to update
+        return true;
 
     } catch (error) {
-        console.log(`  ⚠️ Price filter error: ${error.message} (continuing...)`);
+        console.log(`  ❌ Price filter failed: ${error.message}`);
+        return false;
     }
 }
 
@@ -150,24 +149,27 @@ async function applyDealRatingFilter(page, dealRatings) {
         console.log(`⭐ Setting deal ratings: ${dealRatings.join(', ')}`);
 
         // Open Deal Rating accordion (6-minute timeout)
-        await page.click('#DealRating-accordion-trigger', { timeout: 360000 });
+        await page.click('#DealRating-accordion-trigger', { timeout: 90000 });
         await page.waitForTimeout(1000);
 
         // Click checkboxes for each deal rating
         for (const rating of dealRatings) {
             try {
                 // Click with 6-minute timeout
-                await page.click(`#FILTER\\.DEAL_RATING\\.${rating}`, { timeout: 360000 });
+                await page.click(`#FILTER\\.DEAL_RATING\\.${rating}`, { timeout: 90000 });
                 console.log(`  ✅ Added ${rating.replace('_', ' ')}`);
                 await page.waitForTimeout(300);
             } catch (error) {
-                console.log(`  ⚠️ Could not click ${rating}: ${error.message}`);
+                console.log(`  ❌ Could not click ${rating}: ${error.message}`);
+                return false;
             }
         }
 
         await page.waitForTimeout(2000); // Wait for results to update
+        return true;
     } catch (error) {
-        console.log(`  ⚠️ Deal rating filter error: ${error.message} (continuing...)`);
+        console.log(`  ❌ Deal rating filter failed: ${error.message}`);
+        return false;
     }
 }
 
@@ -177,20 +179,22 @@ async function applySortByNewest(page) {
 
         // Click the sort dropdown button to open it
         const sortButton = page.locator('button[role="combobox"][aria-label="Sort by:"]');
-        await sortButton.waitFor({ state: 'visible', timeout: 360000 });
-        await sortButton.click({ timeout: 360000 });
+        await sortButton.waitFor({ state: 'visible', timeout: 90000 });
+        await sortButton.click({ timeout: 90000 });
 
         console.log(`  ✅ Opened sort dropdown`);
         await page.waitForTimeout(1000);
 
         // Click the actual dropdown option (div with role="option")
-        await page.click('div[role="option"]:has-text("Newest listings first")', { timeout: 360000 });
+        await page.click('div[role="option"]:has-text("Newest listings first")', { timeout: 90000 });
 
         console.log(`  ✅ Selected "Newest listings first"`);
         await page.waitForTimeout(2000); // Wait for results to update
+        return true;
 
     } catch (error) {
-        console.log(`  ⚠️ Sort by newest error: ${error.message} (continuing...)`);
+        console.log(`  ❌ Sort by newest failed: ${error.message}`);
+        return false;
     }
 }
 
@@ -268,53 +272,79 @@ await Actor.main(async () => {
     console.log(`🌍 Search radius: ${searchRadius === 50000 ? 'Nationwide' : searchRadius + ' km'}`);
     console.log(`📊 Max results per page: ${maxResults}`);
 
-    // Launch browser with stealth
-    const browser = await chromium.launch({
-        headless: true,
-        args: [
-            '--disable-blink-features=AutomationControlled',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor',
-        ],
-    });
+    const baseUrl = 'https://www.cargurus.ca/Cars/l-Used-SUV-Crossover-bg7';
 
-    const context = await browser.newContext({
-        viewport: { width: 1920, height: 1080 },
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        locale: 'en-CA',
-        timezoneId: 'America/Toronto',
-        geolocation: { longitude: -79.3832, latitude: 43.6532 },
-        permissions: ['geolocation'],
-    });
+    // Launch browser, apply filters — full browser restart on failure (up to 3 attempts)
+    let browser, context, page;
+    let filtersSucceeded = false;
 
-    const page = await context.newPage();
+    for (let filterAttempt = 1; filterAttempt <= 3; filterAttempt++) {
+        // Fresh browser every attempt
+        if (browser) {
+            await browser.close().catch(() => {});
+        }
 
-    try {
-        // STEP 1: Navigate to base SUV page
-        const baseUrl = 'https://www.cargurus.ca/Cars/l-Used-SUV-Crossover-bg7';
-        console.log(`\n🌐 Visiting base page: ${baseUrl}`);
+        console.log(`\n🔄 Starting fresh browser (attempt ${filterAttempt}/3)...`);
 
-        await page.goto(baseUrl, {
-            waitUntil: 'domcontentloaded',
-            timeout: 90000
+        browser = await chromium.launch({
+            headless: true,
+            args: [
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+            ],
         });
 
-        console.log('⏳ Waiting for page to load...');
-        await page.waitForTimeout(5000);
+        context = await browser.newContext({
+            viewport: { width: 1920, height: 1080 },
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            locale: 'en-CA',
+            timezoneId: 'America/Toronto',
+            geolocation: { longitude: -79.3832, latitude: 43.6532 },
+            permissions: ['geolocation'],
+        });
 
-        // Simulate human behavior
-        console.log('🖱️ Simulating human behavior...');
-        await page.mouse.move(100, 200);
-        await page.waitForTimeout(500);
-        await page.mouse.move(300, 400);
-        await page.waitForTimeout(1000);
+        page = await context.newPage();
 
-        // STEP 2: Apply all filters via UI (once for all pages)
-        await applyFilters(page, filters, searchRadius);
+        try {
+            console.log(`\n🌐 Visiting base page: ${baseUrl}`);
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
+            console.log('⏳ Waiting for page to load...');
+            await page.waitForTimeout(5000);
+
+            console.log('🖱️ Simulating human behavior...');
+            await page.mouse.move(100, 200);
+            await page.waitForTimeout(500);
+            await page.mouse.move(300, 400);
+            await page.waitForTimeout(1000);
+
+            const result = await applyFilters(page, filters, searchRadius);
+
+            if (result) {
+                filtersSucceeded = true;
+                break;
+            }
+        } catch (e) {
+            console.log(`  ❌ Browser attempt ${filterAttempt} crashed: ${e.message}`);
+        }
+
+        if (filterAttempt < 3) {
+            console.log(`⚠️ Filter attempt ${filterAttempt}/3 failed — closing browser and starting fresh...`);
+        } else {
+            console.log(`❌ All 3 filter attempts failed — aborting run`);
+        }
+    }
+
+    if (!filtersSucceeded) {
+        if (browser) await browser.close().catch(() => {});
+        console.log('🛑 Could not apply filters after 3 attempts. Will retry on next scheduled run.');
+        return;
+    }
+
+    try {
         // STEP 3: Get the filtered URL with searchId
-        await page.waitForTimeout(3000);
         const filteredUrl = page.url();
         const baseUrlWithFilters = filteredUrl.split('#')[0];
 
@@ -409,47 +439,33 @@ await Actor.main(async () => {
         for (let listingIndex = 0; listingIndex < listingsToProcess; listingIndex++) {
             console.log(`\n🔍 Processing listing ${listingIndex + 1}/${listingsToProcess}...`);
 
+            let listingPage = null;
             try {
-                // Re-query the listing link by index (DOM may have changed)
-                const linkExists = await page.evaluate((index) => {
+                // Get listing URL from main search tab (which stays open the whole time)
+                const listingHref = await page.evaluate((index) => {
                     const links = document.querySelectorAll('a[data-testid="car-blade-link"]');
-                    return links[index] ? true : false;
+                    return links[index] ? links[index].href : null;
                 }, listingIndex);
 
-                if (!linkExists) {
+                if (!listingHref) {
                     console.log(`  ⚠️ Listing ${listingIndex + 1} not found in DOM - skipping`);
                     continue;
                 }
 
-                // Click the listing to trigger SPA detail view
-                await page.evaluate((index) => {
-                    const links = document.querySelectorAll('a[data-testid="car-blade-link"]');
-                    links[index].click();
-                }, listingIndex);
-
-                console.log(`  ✅ Clicked listing ${listingIndex + 1}`);
-
-                // Wait for SPA detail view to load
-                try {
-                    await page.waitForSelector('div[data-cg-ft="listing-vdp-stats"]', { timeout: 10000 });
-                    console.log(`  ✅ Detail view loaded`);
-                } catch (e) {
-                    console.log(`  ⚠️ Detail view not loaded: ${e.message}`);
-                    // Try to go back to search results
-                    await page.goBack();
-                    await page.waitForTimeout(2000);
-                    continue;
-                }
+                // Open listing in a new tab — search results tab stays untouched
+                listingPage = await context.newPage();
+                await listingPage.goto(listingHref, { waitUntil: 'domcontentloaded', timeout: 90000 });
+                await listingPage.waitForSelector('h1[data-cg-ft="vdp-listing-title"]', { timeout: 15000 });
+                console.log(`  ✅ Detail page loaded`);
 
                 // Small delay to let detail view fully render
-                await page.waitForTimeout(2000);
+                await listingPage.waitForTimeout(2000);
 
-                // Extract data from DOM (SPA detail view)
-                const carData = await page.evaluate(() => {
+                // Extract data from the listing tab
+                const carData = await listingPage.evaluate(() => {
                     const preflight = window.__PREFLIGHT__ || {};
                     const listing = preflight.listing || {};
 
-                    // Extract from new DOM structure first (data-cg-ft attributes)
                     const vinEl = document.querySelector('div[data-cg-ft="vin"] span._value_ujq1z_13');
                     const makeEl = document.querySelector('div[data-cg-ft="make"] span._value_ujq1z_13');
                     const modelEl = document.querySelector('div[data-cg-ft="model"] span._value_ujq1z_13');
@@ -461,20 +477,14 @@ await Actor.main(async () => {
 
                     let vin = vinEl ? vinEl.textContent.trim() : (listing.vin || null);
                     if (!vin && listing.specs) {
-                        const vinSpec = listing.specs.find(s =>
-                            s.label && s.label.toLowerCase() === 'vin'
-                        );
+                        const vinSpec = listing.specs.find(s => s.label && s.label.toLowerCase() === 'vin');
                         if (vinSpec) vin = vinSpec.value;
                     }
 
-                    // Try to extract fuel type from specs if not in DOM
                     let fuelType = fuelTypeEl ? fuelTypeEl.textContent.trim() : null;
                     if (!fuelType && listing.specs) {
                         const fuelSpec = listing.specs.find(s =>
-                            s.label && (
-                                s.label.toLowerCase().includes('fuel') ||
-                                s.label.toLowerCase().includes('engine')
-                            )
+                            s.label && (s.label.toLowerCase().includes('fuel') || s.label.toLowerCase().includes('engine'))
                         );
                         if (fuelSpec) fuelType = fuelSpec.value;
                     }
@@ -482,14 +492,12 @@ await Actor.main(async () => {
                     const titleEl = document.querySelector('h1[data-cg-ft="vdp-listing-title"]');
                     const title = titleEl ? titleEl.textContent.trim() : '';
 
-                    // Extract price
                     const priceEl = document.querySelector('div._price_1yep1_1 h2');
                     const priceText = priceEl ? priceEl.textContent.trim() : null;
                     const priceValue = priceText ? parseInt(priceText.replace(/[$,]/g, '')) : null;
 
-                    // Extract dealer info
                     const dealerNameEl = document.querySelector('[data-testid="dealerName"]');
-                    const locationFromTitle = document.querySelector('hgroup p.oqywn.sCSIz');
+                    const locationFromTitle = document.querySelector('hgroup p.fIarB.SlqY9');
                     const dealerAddressEl = document.querySelector('[data-testid="dealerAddress"] span[data-track-ui="dealer-address"]');
 
                     return {
@@ -512,6 +520,11 @@ await Actor.main(async () => {
                         source: 'dom'
                     };
                 });
+
+                // Close the listing tab — back to search results automatically
+                await listingPage.close();
+                listingPage = null;
+                console.log(`  ✅ Listing tab closed`);
 
                 // Add page metadata
                 carData.pageNumber = pageToScrape;
@@ -539,17 +552,13 @@ await Actor.main(async () => {
                     await Actor.pushData(dataToSave);
                     console.log(`  ✅ Saved to dataset`);
 
-                    // Send to webhook
                     try {
                         const webhookUrl = 'https://n8nsaved-production.up.railway.app/webhook/cargurus';
                         const response = await fetch(webhookUrl, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(dataToSave)
                         });
-
                         if (response.ok) {
                             console.log(`  📤 Sent to webhook (${response.status})`);
                         } else {
@@ -562,25 +571,14 @@ await Actor.main(async () => {
                     console.log(`  ⚠️ No data found - skipping`);
                 }
 
-                // Navigate back to search results
-                console.log(`  ← Going back to search results...`);
-                await page.goBack();
-
-                // Wait for search results to load
-                await page.waitForSelector('a[data-testid="car-blade-link"]', { timeout: 10000 });
-                console.log(`  ✅ Back to search results`);
-
                 // Random delay between cars
                 await page.waitForTimeout(2000 + Math.random() * 3000);
 
             } catch (error) {
                 console.error(`❌ Error processing listing ${listingIndex + 1}:`, error.message);
-                // Try to go back to search results if error occurred
-                try {
-                    await page.goBack();
-                    await page.waitForTimeout(2000);
-                } catch (backError) {
-                    console.error(`  ⚠️ Could not navigate back: ${backError.message}`);
+                if (listingPage) {
+                    await listingPage.close().catch(() => {});
+                    listingPage = null;
                 }
             }
         }
