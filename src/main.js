@@ -542,11 +542,15 @@ await Actor.main(async () => {
 
                 // Save car data
                 if (carData.vin || carData.title) {
+                    const sourceScraper = pageToScrape >= 1 && pageToScrape <= 6
+                        ? 'Newest (3-pager)'
+                        : 'Newest';
+
                     const dataToSave = {
                         type: 'car_listing',
                         ...carData,
                         scrapedAt: new Date().toISOString(),
-                        source_scraper: 'Newest'
+                        source_scraper: sourceScraper
                     };
 
                     await Actor.pushData(dataToSave);
